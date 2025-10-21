@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartWallet - المحفظة الذكية</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background-color: #1e1e1e;
+    color: #ddd;
+    margin: 0;
+    padding: 0;
+  }
+  header {
+    background-color: #2c2c2c;
+    padding: 1rem;
+    text-align: center;
+    font-size: 1.5rem;
+  }
+  .container {
+    padding: 1rem;
+    max-width: 600px;
+    margin: auto;
+  }
+  input, select, button {
+    padding: 0.5rem;
+    margin: 0.3rem 0;
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 5px;
+    border: none;
+  }
+  input, select {
+    background-color: #333;
+    color: #fff;
+  }
+  button {
+    background-color: #4CAF50;
+    color: white;
+    cursor: pointer;
+  }
+  button.delete {
+    background-color: #f44336;
+  }
+  .item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #444;
+  }
+  canvas {
+    margin-top: 1rem;
+  }
+</style>
+</head>
+<body>
+<header>SmartWallet - المحفظة الذكية</header>
+<div class="container">
+  <h3>إضافة مصروف / دخل</h3>
+  <select id="type">
+    <option value="expense">مصروف</option>
+    <option value="income">دخل</option>
+  </select>
+  <input type="text" id="category" placeholder="الفئة">
+  <input type="number" id="amount" placeholder="المبلغ بالليرة التركية ₺">
+  <button id="addBtn">إضافة</button>
+  <button id="undoBtn">تراجع عن آخر إضافة</button>
+  <button id="clearBtn" class="delete">مسح كل البيانات</button>
+
+  <h3>البيانات</h3>
+  <div id="list"></div>
+
+  <canvas id="chart" width="400" height="200"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let data = JSON.parse(localStorage.getItem('smartwalletData')) || [];
+let lastAction = null;
+
+function saveData() {
+  localStorage.setItem('smartwalletData', JSON.stringify(data));
+}
+
+function render() {
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  data.forEach((item, index) => {
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.innerHTML = \`\${item.type === 'expense' ? '❌' : '✅'} \${item.category}: \${item.amount} ₺ <button onclick="deleteItem(\${index})" class="delete">حذف</button>\`;
+    list.appendChild(div);
+  });
+  renderChart();
+}
+
+function addItem() {
+  const type = document.getElementById('type').value;
+  const category = document.getElementById('category').value;
+  const amount = parseFloat(document.getElementById('amount').value);
+  if(!category || !amount) return alert('يرجى ملء جميع الحقول!');
+  lastAction = {action:'add', item:{type, category, amount}};
+  data.push({type, category, amount});
+  saveData();
+  render();
+  document.getElementById('category').value='';
+  document.getElementById('amount').value='';
+}
+
+function deleteItem(index) {
+  lastAction = {action:'delete', item:data[index], index};
+  data.splice(index,1);
+  saveData();
+  render();
+}
+
+function undo() {
+  if(!lastAction) return alert('لا توجد عملية للتراجع');
+  if(lastAction.action==='add') data.pop();
+  else if(lastAction.action==='delete') data.splice(lastAction.index,0,lastAction.item);
+  lastAction=null;
+  saveData();
+  render();
+}
+
+function clearAll() {
+  if(confirm('هل أنت متأكد من مسح كل البيانات؟')) {
+    data=[];
+    lastAction=null;
+    saveData();
+    render();
+  }
+}
+
+function renderChart() {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const labels = data.map((d,i)=>d.category+' ('+(d.type==='expense'?'❌':'✅')+')');
+  const amounts = data.map(d=>d.type==='expense'? -d.amount : d.amount);
+  if(window.myChart) window.myChart.destroy();
+  window.myChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[{
+        label:'المصروف/الدخل بالليرة التركية ₺',
+        data: amounts,
+        backgroundColor: amounts.map(a=>a<0?'#f44336':'#4CAF50')
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}}
+    }
+  });
+}
+
+document.getElementById('addBtn').addEventListener('click', addItem);
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('clearBtn').addEventListener('click', clearAll);
+
+render();
+</script>
+</body>
+</html>
